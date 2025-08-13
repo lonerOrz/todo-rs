@@ -184,19 +184,36 @@ pub fn remove(id: usize) {
 }
 
 pub fn prompt_today() {
-    let tasks = load_tasks();
-
+    let all_tasks = load_tasks();
     let today = today_str();
+    let today_date = parse_date_str(&today).expect("Failed to parse today's date");
 
-    let parts: Vec<String> = tasks
+    let mut parts: Vec<String> = Vec::new();
+
+    // Add overdue tasks (up to 7 days)
+    let overdue_tasks: Vec<&Task> = all_tasks
         .iter()
-        .filter(|t| t.date == today)
-        .map(|t| {
-            let icon = if t.done { "🟢" } else { "🔴" };
-
-            format!("{}#{}", icon, t.id)
+        .filter(|t| {
+            let task_date = parse_date_str(&t.date).expect("Invalid date format in task data.");
+            !t.done && task_date < today_date && (today_date - task_date).num_days() <= 7
         })
         .collect();
+
+    for t in overdue_tasks {
+        let icon = if t.done { "🟢" } else { "🔴" };
+        parts.push(format!("{}#{}", icon, t.id));
+    }
+
+    // Add today's tasks
+    let todays_tasks: Vec<&Task> = all_tasks
+        .iter()
+        .filter(|t| parse_date_str(&t.date).map_or(false, |d| d == today_date))
+        .collect();
+
+    for t in todays_tasks {
+        let icon = if t.done { "🟢" } else { "🔴" };
+        parts.push(format!("{}#{}", icon, t.id));
+    }
 
     if !parts.is_empty() {
         println!("{}", parts.join(" "));
