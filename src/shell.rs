@@ -1,7 +1,9 @@
 pub fn init_shell(shell: &str) {
     match shell {
         "fish" => {
-            println!("{}", r#"
+            println!(
+                "{}",
+                r#"
 function td_prompt
     set -l s (td prompt-today)
     if test "$s" != ""
@@ -19,11 +21,14 @@ function fish_prompt
     td_prompt
     echo -n (prompt_pwd) '> '
 end
-"#);
+"#
+            );
         }
 
         "zsh" => {
-            println!("{}", r#"
+            println!(
+                "{}",
+                r#"
 td_prompt() {
   local s=$(td prompt-today)
   if [[ -n "$s" ]]; then
@@ -36,7 +41,8 @@ show_todo_list() {
 bindkey '^O' show_todo_list
 
 PROMPT='$(td_prompt)%~> '
-"#);
+"#
+            );
         }
 
         _ => eprintln!("Unsupported shell: {}", shell),

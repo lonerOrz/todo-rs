@@ -26,24 +26,29 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
 
     if let Some(specific_date_str) = date_arg {
         // Specific date view
-        let specific_date = parse_date_str(&specific_date_str).expect("Invalid date format. Use YYYY-MM-DD.");
-        tasks_to_display = all_tasks.iter()
+        let specific_date =
+            parse_date_str(&specific_date_str).expect("Invalid date format. Use YYYY-MM-DD.");
+        tasks_to_display = all_tasks
+            .iter()
             .filter(|t| parse_date_str(&t.date).map_or(false, |d| d == specific_date))
             .collect();
         println!("--- For {} ---", specific_date_str);
     } else if show_week {
         // Week view
         let (week_start, week_end) = get_current_week_range(today_date);
-        tasks_to_display = all_tasks.iter()
-            .filter(|t| {
-                parse_date_str(&t.date).map_or(false, |d| d >= week_start && d <= week_end)
-            })
+        tasks_to_display = all_tasks
+            .iter()
+            .filter(|t| parse_date_str(&t.date).map_or(false, |d| d >= week_start && d <= week_end))
             .collect();
-        println!("--- For Current Week ({}) ---", today_date.format("%Y-%m-%d"));
+        println!(
+            "--- For Current Week ({}) ---",
+            today_date.format("%Y-%m-%d")
+        );
     } else if show_month {
         // Month view
         let (month_start, month_end) = get_current_month_range(today_date);
-        tasks_to_display = all_tasks.iter()
+        tasks_to_display = all_tasks
+            .iter()
             .filter(|t| {
                 parse_date_str(&t.date).map_or(false, |d| d >= month_start && d <= month_end)
             })
@@ -51,7 +56,8 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
         println!("--- For Current Month ({}) ---", today_date.format("%Y-%m"));
     } else {
         // Default view: Today's tasks + overdue tasks (up to 7 days)
-        let mut overdue_tasks: Vec<&Task> = all_tasks.iter()
+        let mut overdue_tasks: Vec<&Task> = all_tasks
+            .iter()
             .filter(|t| {
                 let task_date = parse_date_str(&t.date).expect("Invalid date format in task data.");
                 !t.done && task_date < today_date && (today_date - task_date).num_days() <= 7
@@ -59,14 +65,17 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
             .collect();
         overdue_tasks.sort_by_key(|t| &t.date); // Sort overdue by date
 
-        let mut todays_tasks: Vec<&Task> = all_tasks.iter()
+        let mut todays_tasks: Vec<&Task> = all_tasks
+            .iter()
             .filter(|t| parse_date_str(&t.date).map_or(false, |d| d == today_date))
             .collect();
         todays_tasks.sort_by_key(|t| t.id); // Sort today's by ID
 
         if !overdue_tasks.is_empty() {
-            println!("
---- Overdue Tasks (up to 7 days) ---");
+            println!(
+                "
+--- Overdue Tasks (up to 7 days) ---"
+            );
             for t in &overdue_tasks {
                 let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
                 println!("{} [ ] {} (过期 {} 天)", t.id, t.task, days_overdue);
@@ -74,8 +83,11 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
         }
 
         if !todays_tasks.is_empty() {
-            println!("
---- Today's Tasks ({}) ---", today);
+            println!(
+                "
+--- Today's Tasks ({}) ---",
+                today
+            );
             for t in &todays_tasks {
                 let status = if t.done { "[✓]" } else { "[ ]" };
                 println!("{} {} {}", t.id, status, t.task);
@@ -95,12 +107,13 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
     } else {
         for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
-            let overdue_info = if !t.done && parse_date_str(&t.date).map_or(false, |d| d < today_date) {
-                let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
-                format!(" (过期 {} 天)", days_overdue)
-            } else {
-                "".to_string()
-            };
+            let overdue_info =
+                if !t.done && parse_date_str(&t.date).map_or(false, |d| d < today_date) {
+                    let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
+                    format!(" (过期 {} 天)", days_overdue)
+                } else {
+                    "".to_string()
+                };
             println!("{} {} {}{}", t.id, status, t.task, overdue_info);
         }
     }
@@ -145,7 +158,6 @@ fn truncate_string(s: &str, max_chars: usize) -> String {
     }
 }
 
-
 pub fn mark_done(id: usize) {
     let mut tasks = load_tasks();
     for t in &mut tasks {
@@ -171,24 +183,20 @@ pub fn remove(id: usize) {
     }
 }
 
-
 pub fn prompt_today() {
     let tasks = load_tasks();
+
     let today = today_str();
 
-    let (done_count, undone_count) = tasks.iter()
+    let parts: Vec<String> = tasks
+        .iter()
         .filter(|t| t.date == today)
-        .fold((0, 0), |(done, undone), t| {
-            if t.done { (done + 1, undone) } else { (done, undone + 1) }
-        });
+        .map(|t| {
+            let icon = if t.done { "🟢" } else { "🔴" };
 
-    let mut parts = Vec::new();
-    if done_count > 0 {
-        parts.push(format!("🟢#{}", done_count));
-    }
-    if undone_count > 0 {
-        parts.push(format!("🔴#{}", undone_count));
-    }
+            format!("{}#{}", icon, t.id)
+        })
+        .collect();
 
     if !parts.is_empty() {
         println!("{}", parts.join(" "));
@@ -201,7 +209,8 @@ pub fn review() {
 
     println!("\n--- Tasks Overdue by More Than 7 Days ---");
 
-    let mut old_overdue_tasks: Vec<&Task> = all_tasks.iter()
+    let mut old_overdue_tasks: Vec<&Task> = all_tasks
+        .iter()
         .filter(|t| {
             let task_date = parse_date_str(&t.date).expect("Invalid date format in task data.");
             !t.done && task_date < today_date && (today_date - task_date).num_days() > 7
@@ -212,14 +221,16 @@ pub fn review() {
 
     if old_overdue_tasks.is_empty() {
         println!("No tasks currently overdue by more than 7 days.");
-    }
-    else {
+    } else {
         println!("ID   日期         过期天数   任务描述");
         println!("---  -----------  --------   -----------------------");
         for t in old_overdue_tasks {
             let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
             let task_display = truncate_string(&t.task, 22);
-            println!("{:<4} {:<11}  {:<4}     {}", t.id, t.date, days_overdue, task_display);
+            println!(
+                "{:<4} {:<11}  {:<4}     {}",
+                t.id, t.date, days_overdue, task_display
+            );
         }
 
         println!("\n您可以选择以下操作：");
@@ -245,7 +256,10 @@ pub fn reuse(id: usize, date: Option<String>) {
             original_task_mut.done = true;
         }
         save_tasks(&tasks);
-        println!("[+] Reused task #{} as new task #{}. Original task marked done.", id, new_id);
+        println!(
+            "[+] Reused task #{} as new task #{}. Original task marked done.",
+            id, new_id
+        );
     } else {
         eprintln!("Task #{} not found.", id);
     }

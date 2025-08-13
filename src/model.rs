@@ -1,6 +1,6 @@
+use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
-use chrono::Local;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Task {
