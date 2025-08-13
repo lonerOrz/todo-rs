@@ -13,7 +13,7 @@ function show_todo_list
     td list
 end
 
-bind \ct show_todo_list
+bind \co show_todo_list
 
 function fish_prompt
     td_prompt
@@ -33,7 +33,7 @@ td_prompt() {
 show_todo_list() {
   td list
 }
-bindkey '^T' show_todo_list
+bindkey '^O' show_todo_list
 
 PROMPT='$(td_prompt)%~> '
 "#);
