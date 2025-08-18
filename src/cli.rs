@@ -16,6 +16,36 @@ pub fn add(task: String, date: Option<String>) {
     println!("[+] Added task #{}", new_id);
 }
 
+pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) {
+    let mut tasks = load_tasks();
+    let mut changed = false;
+
+    if let Some(task) = tasks.iter_mut().find(|t| t.id == id) {
+        if let Some(new_task_str) = new_task {
+            task.task = new_task_str;
+            changed = true;
+        }
+        if let Some(new_date_str) = new_date {
+            if parse_date_str(&new_date_str).is_ok() {
+                task.date = new_date_str;
+                changed = true;
+            } else {
+                eprintln!("Error: Invalid date format. Please use YYYY-MM-DD.");
+                return;
+            }
+        }
+
+        if changed {
+            save_tasks(&tasks);
+            println!("[✓] Task #{} updated.", id);
+        } else {
+            println!("No changes made to task #{}.", id);
+        }
+    } else {
+        eprintln!("Task #{} not found.", id);
+    }
+}
+
 pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
     let all_tasks = load_tasks();
     let today = today_str();

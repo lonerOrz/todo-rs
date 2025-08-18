@@ -46,6 +46,23 @@ fn main() {
                 .about("Remove task")
                 .arg(Arg::new("id").required(true)),
         )
+        .subcommand(
+            Command::new("edit")
+                .about("Edit a task")
+                .arg(Arg::new("id").required(true))
+                .arg(
+                    Arg::new("task")
+                        .long("task")
+                        .short('t')
+                        .help("The new description of the task"),
+                )
+                .arg(
+                    Arg::new("date")
+                        .long("date")
+                        .short('d')
+                        .help("The new date of the task"),
+                ),
+        )
         .subcommand(Command::new("prompt-today").about("Print status icons for prompt"))
         .subcommand(Command::new("review").about("Review tasks overdue by more than 7 days"))
         .subcommand(
@@ -80,7 +97,11 @@ fn main() {
             cli::mark_done(sub.get_one::<String>("id").unwrap().parse().unwrap())
         }
         Some(("rm", sub)) => cli::remove(sub.get_one::<String>("id").unwrap().parse().unwrap()),
-
+        Some(("edit", sub)) => cli::edit(
+            sub.get_one::<String>("id").unwrap().parse().unwrap(),
+            sub.get_one::<String>("task").map(|s| s.to_string()),
+            sub.get_one::<String>("date").map(|s| s.to_string()),
+        ),
         Some(("prompt-today", _)) => cli::prompt_today(),
         Some(("review", _)) => cli::review(),
         Some(("reuse", sub)) => cli::reuse(
