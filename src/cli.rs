@@ -1,6 +1,31 @@
 use crate::model::*;
 use chrono::Datelike;
 
+fn get_task_extra_info(t: &Task, today_date: chrono::NaiveDate) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(reuse_id) = t.reuse_by {
+        parts.push(format!("reused from #{}", reuse_id));
+    }
+
+    if !t.done {
+        if let Ok(task_date) = parse_date_str(&t.date) {
+            if task_date < today_date {
+                let days_overdue = (today_date - task_date).num_days();
+                if days_overdue > 0 {
+                    parts.push(format!("overdue {} days", days_overdue));
+                }
+            }
+        }
+    }
+
+    if parts.is_empty() {
+        "".to_string()
+    } else {
+        format!(" ({})", parts.join(", "))
+    }
+}
+
 pub fn add(task: String, date: Option<String>) {
     let mut tasks = load_tasks();
     let new_id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
@@ -64,25 +89,7 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
         println!("--- For {} ---", specific_date_str);
         for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
-            let mut extra_info_parts = Vec::new();
-            if let Some(reuse_id) = t.reuse_by {
-                extra_info_parts.push(format!("reused from #{}", reuse_id));
-            }
-            if !t.done {
-                if let Ok(task_date) = parse_date_str(&t.date) {
-                    if task_date < today_date {
-                        let days_overdue = (today_date - task_date).num_days();
-                        if days_overdue > 0 {
-                            extra_info_parts.push(format!("overdue {} days", days_overdue));
-                        }
-                    }
-                }
-            }
-            let extra_info = if extra_info_parts.is_empty() {
-                "".to_string()
-            } else {
-                format!(" ({})", extra_info_parts.join(", "))
-            };
+            let extra_info = get_task_extra_info(t, today_date);
             println!("{} {} {}{}", t.id, status, t.task, extra_info);
         }
     } else if show_week {
@@ -99,31 +106,13 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
             })
             .collect();
         println!(
-            "--- For Current Week ({} to {})",
+            "--- For Current Week ({} to {}) ---",
             week_start.format("%Y-%m-%d"),
             week_end.format("%Y-%m-%d")
         );
         for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
-            let mut extra_info_parts = Vec::new();
-            if let Some(reuse_id) = t.reuse_by {
-                extra_info_parts.push(format!("reused from #{}", reuse_id));
-            }
-            if !t.done {
-                if let Ok(task_date) = parse_date_str(&t.date) {
-                    if task_date < today_date {
-                        let days_overdue = (today_date - task_date).num_days();
-                        if days_overdue > 0 {
-                            extra_info_parts.push(format!("overdue {} days", days_overdue));
-                        }
-                    }
-                }
-            }
-            let extra_info = if extra_info_parts.is_empty() {
-                "".to_string()
-            } else {
-                format!(" ({})", extra_info_parts.join(", "))
-            };
+            let extra_info = get_task_extra_info(t, today_date);
             println!("{} {} {}{}", t.id, status, t.task, extra_info);
         }
     } else if show_month {
@@ -135,28 +124,10 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
                 parse_date_str(&t.date).map_or(false, |d| d >= month_start && d <= month_end)
             })
             .collect();
-        println!("--- For Current Month ({})", today_date.format("%Y-%m"));
+        println!("--- For Current Month ({}) ---", today_date.format("%Y-%m"));
         for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
-            let mut extra_info_parts = Vec::new();
-            if let Some(reuse_id) = t.reuse_by {
-                extra_info_parts.push(format!("reused from #{}", reuse_id));
-            }
-            if !t.done {
-                if let Ok(task_date) = parse_date_str(&t.date) {
-                    if task_date < today_date {
-                        let days_overdue = (today_date - task_date).num_days();
-                        if days_overdue > 0 {
-                            extra_info_parts.push(format!("overdue {} days", days_overdue));
-                        }
-                    }
-                }
-            }
-            let extra_info = if extra_info_parts.is_empty() {
-                "".to_string()
-            } else {
-                format!(" ({})", extra_info_parts.join(", "))
-            };
+            let extra_info = get_task_extra_info(t, today_date);
             println!("{} {} {}{}", t.id, status, t.task, extra_info);
         }
     } else {
@@ -175,7 +146,7 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
         week_tasks.sort_by_key(|t| &t.date);
 
         println!(
-            "--- Tasks For Current Week ({} to {})",
+            "--- Tasks For Current Week ({} to {}) ---",
             week_start.format("%Y-%m-%d"),
             week_end.format("%Y-%m-%d")
         );
@@ -185,25 +156,7 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
         } else {
             for t in week_tasks {
                 let status = if t.done { "[✓]" } else { "[ ]" };
-                let mut extra_info_parts = Vec::new();
-                if let Some(reuse_id) = t.reuse_by {
-                    extra_info_parts.push(format!("reused from #{}", reuse_id));
-                }
-                if !t.done {
-                    if let Ok(task_date) = parse_date_str(&t.date) {
-                        if task_date < today_date {
-                            let days_overdue = (today_date - task_date).num_days();
-                            if days_overdue > 0 {
-                                extra_info_parts.push(format!("overdue {} days", days_overdue));
-                            }
-                        }
-                    }
-                }
-                let extra_info = if extra_info_parts.is_empty() {
-                    "".to_string()
-                } else {
-                    format!(" ({})", extra_info_parts.join(", "))
-                };
+                let extra_info = get_task_extra_info(t, today_date);
                 println!("{:<10}  {} {} {}{}", t.date, t.id, status, t.task, extra_info);
             }
         }
