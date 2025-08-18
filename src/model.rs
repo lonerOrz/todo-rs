@@ -8,6 +8,8 @@ pub struct Task {
     pub task: String,
     pub date: String,
     pub done: bool,
+    #[serde(default)]
+    pub reuse_by: Option<usize>,
 }
 
 pub fn get_storage_path() -> PathBuf {
