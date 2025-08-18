@@ -239,22 +239,27 @@ pub fn prompt_today() {
     let all_tasks = load_tasks();
     let today = today_str();
     let today_date = parse_date_str(&today).expect("Failed to parse today's date");
+    let (week_start, _) = get_current_week_range(today_date);
 
-    let mut parts: Vec<String> = Vec::new();
-
-    let (week_start, week_end) = get_current_week_range(today_date);
-    let week_tasks: Vec<&Task> = all_tasks
+    let mut tasks_to_display: Vec<&Task> = all_tasks
         .iter()
         .filter(|t| {
             if let Ok(task_date) = parse_date_str(&t.date) {
-                task_date >= week_start && task_date <= week_end
+                // Condition 1: Undone tasks from the start of the week up to (but not including) today
+                let is_past_undone = task_date >= week_start && task_date < today_date && !t.done;
+                // Condition 2: All tasks for today
+                let is_today = task_date == today_date;
+                is_past_undone || is_today
             } else {
                 false
             }
         })
         .collect();
 
-    for t in week_tasks {
+    tasks_to_display.sort_by_key(|t| (&t.date, t.id));
+
+    let mut parts: Vec<String> = Vec::new();
+    for t in tasks_to_display {
         let icon = if t.done {
             "🟢"
         } else if t.reuse_by.is_some() {
