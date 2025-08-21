@@ -224,21 +224,21 @@ pub fn review() {
     if old_overdue_tasks.is_empty() {
         println!("No tasks currently overdue from before the current week.");
     } else {
-        println!("ID   日期         过期天数   任务描述");
-        println!("---  -----------  --------   -----------------------");
+        println!("ID   Date         Days Overdue   Task Description");
+        println!("---  -----------  ------------   -----------------------");
         for t in old_overdue_tasks {
             let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
             let task_display = truncate_string(&t.task, 22);
             println!(
-                "{:<4} {:<11}  {:<4}     {}",
+                "{:<4} {:<11}  {:<12}   {}:",
                 t.id, t.date, days_overdue, task_display
             );
         }
 
-        println!("\n您可以选择以下操作：");
-        println!("- 完成任务：td done <任务ID>");
-        println!("- 重新安排日期：td reuse <旧任务ID> --date YYYY-MM-DD");
-        println!("- 删除任务：td rm <任务ID>");
+        println!("\nYou can choose from the following actions:");
+        println!("- Complete task: td done <Task ID>");
+        println!("- Reschedule task: td reuse <Old Task ID> --date YYYY-MM-DD");
+        println!("- Delete task: td rm <Task ID>");
     }
 }
 
