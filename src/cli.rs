@@ -329,32 +329,31 @@ fn list_by_week(tasks: &[Task], today_date: NaiveDate) {
 }
 
 fn list_default(tasks: &[Task], today_date: NaiveDate) {
-    let (week_start, week_end) = get_current_week_range(today_date);
-    let mut week_tasks: Vec<&Task> = tasks
+    let (week_start, _) = get_current_week_range(today_date);
+
+    let mut tasks_to_display: Vec<&Task> = tasks
         .iter()
         .filter(|t| {
             if let Ok(task_date) = parse_date_str(&t.date) {
-                task_date >= week_start && task_date <= week_end
+                let is_past_undone = task_date >= week_start && task_date < today_date && !t.done;
+                let is_today = task_date == today_date;
+                is_past_undone || is_today
             } else {
                 false
             }
         })
         .collect();
-    week_tasks.sort_by_key(|t| &t.date);
+    tasks_to_display.sort_by_key(|t| (&t.date, t.id));
 
-    println!(
-        "--- Tasks For Current Week ({} to {}) ---",
-        week_start.format("%Y-%m-%d"),
-        week_end.format("%Y-%m-%d")
-    );
+    println!("--- Current Tasks ---");
 
-    if week_tasks.is_empty() {
-        println!("No tasks for the current week.");
+    if tasks_to_display.is_empty() {
+        println!("No tasks for today or overdue this week.");
     } else {
-        for t in week_tasks {
+        for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
             let extra_info = get_task_extra_info(t, today_date);
-            println!("{:<10}  {} {} {}{}", t.date, t.id, status, t.task, extra_info);
+            println!("{} {} {}{}", t.id, status, t.task, extra_info);
         }
     }
 }
