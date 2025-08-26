@@ -244,20 +244,29 @@ pub fn review() {
 
 pub fn reuse(id: usize, date: Option<String>) {
     let mut tasks = load_tasks();
-    if let Some(original_task) = tasks.iter().find(|t| t.id == id) {
+    let task_to_reuse_opt = tasks.iter().find(|t| t.id == id).cloned();
+
+    if let Some(task_to_reuse) = task_to_reuse_opt {
         let new_id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+
+        // If task_to_reuse was itself a reused task, we point to its original.
+        // Otherwise, we point to it.
+        let new_reuse_by_id = task_to_reuse.reuse_by.unwrap_or(id);
+
         let new_task = Task {
             id: new_id,
-            task: original_task.task.clone(),
+            task: task_to_reuse.task,
             date: date.unwrap_or_else(today_str),
             done: false,
-            reuse_by: Some(id),
+            reuse_by: Some(new_reuse_by_id),
         };
         tasks.push(new_task);
+
         // Mark the original task as done
         if let Some(original_task_mut) = tasks.iter_mut().find(|t| t.id == id) {
             original_task_mut.done = true;
         }
+
         save_tasks(&tasks);
         println!(
             "[+] Reused task #{} as new task #{}. Original task marked done.",
