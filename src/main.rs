@@ -70,6 +70,12 @@ fn main() {
                         .long("search")
                         .value_name("KEYWORD")
                         .help("Search tasks by keyword in task content"),
+                )
+                .arg(
+                    Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output tasks in JSON format"),
                 ),
         )
         .subcommand(
@@ -135,6 +141,7 @@ fn main() {
             sub.get_one::<String>("from_id").and_then(|s| s.parse::<usize>().ok()),
             sub.get_one::<String>("to_id").and_then(|s| s.parse::<usize>().ok()),
             sub.get_one::<String>("search").map(|s| s.to_lowercase()),
+            sub.get_flag("json"),
         ),
         Some(("done", sub)) => {
             let id_str = sub.get_one::<String>("id")

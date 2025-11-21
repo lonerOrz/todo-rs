@@ -131,7 +131,7 @@ pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) -> Re
     Ok(())
 }
 
-pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_done: bool, show_pending: bool, from_id: Option<usize>, to_id: Option<usize>, search_keyword: Option<String>) -> Result<()> {
+pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_done: bool, show_pending: bool, from_id: Option<usize>, to_id: Option<usize>, search_keyword: Option<String>, json_output: bool) -> Result<()> {
     let mut all_tasks = TaskStore::get_all_tasks()?;
     let today = today_str();
     let today_date = match parse_date_str(&today) {
@@ -163,16 +163,56 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_do
         all_tasks.retain(|t| t.task.to_lowercase().contains(&keyword));
     }
 
-    println!("Tasks:");
+    // Apply date filter if specified
+    if let Some(ref specific_date_str) = date_arg {
+        let specific_date = parse_date_str(specific_date_str);
+        if let Ok(parsed_date) = specific_date {
+            all_tasks.retain(|t| parse_date_str(&t.date).map_or(false, |d| d == parsed_date));
+        }
+        // If date parsing fails, we continue with all tasks but the date view will handle the error
+    }
 
-    if let Some(specific_date_str) = date_arg {
-        list_by_date(&all_tasks, today_date, &specific_date_str);
-    } else if show_week {
-        list_by_week(&all_tasks, today_date);
+    if show_week {
+        let (week_start, week_end) = get_current_week_range(today_date);
+        all_tasks.retain(|t| {
+            if let Ok(task_date) = parse_date_str(&t.date) {
+                task_date >= week_start && task_date <= week_end
+            } else {
+                false
+            }
+        });
     } else if show_month {
-        list_by_month(&all_tasks, today_date);
+        // For month view, no additional filtering beyond other criteria
+    } else if date_arg.is_none() {
+        // Only apply the default week filter if no other date filter is specified
+        let (week_start, _) = get_current_week_range(today_date);
+        all_tasks.retain(|t| {
+            if let Ok(task_date) = parse_date_str(&t.date) {
+                let is_past_undone = task_date >= week_start && task_date < today_date && !t.done;
+                let is_today = task_date == today_date;
+                is_past_undone || is_today
+            } else {
+                false
+            }
+        });
+    }
+
+    if json_output {
+        // Output tasks as JSON
+        println!("{}", serde_json::to_string_pretty(&all_tasks)?);
     } else {
-        list_default(&all_tasks, today_date);
+        // Traditional output
+        println!("Tasks:");
+
+        if let Some(ref specific_date_str) = date_arg {
+            list_by_date(&all_tasks, today_date, specific_date_str);
+        } else if show_week {
+            list_by_week(&all_tasks, today_date);
+        } else if show_month {
+            list_by_month(&all_tasks, today_date);
+        } else {
+            list_default(&all_tasks, today_date);
+        }
     }
 
     Ok(())
