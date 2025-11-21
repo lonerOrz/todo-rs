@@ -393,3 +393,105 @@ fn list_default(tasks: &[Task], today_date: NaiveDate) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::task_store::TaskStore;
+
+    #[test]
+    fn test_add_task() {
+        // Reset the store for this test
+        TaskStore::reset_store_for_testing();
+
+        // Add a task
+        let result = add("Test task".to_string(), Some("2023-01-01".to_string()));
+        assert!(result.is_ok());
+
+        // Check that the task was added
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks.len(), 1);
+        assert_eq!(all_tasks[0].task, "Test task");
+        assert_eq!(all_tasks[0].date, "2023-01-01");
+        assert_eq!(all_tasks[0].done, false);
+    }
+
+    #[test]
+    fn test_mark_done() {
+        // Reset the store for this test
+        TaskStore::reset_store_for_testing();
+
+        // Add a task first
+        let result = add("Test task".to_string(), Some("2023-01-01".to_string()));
+        assert!(result.is_ok());
+
+        // Verify the task is not done initially
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks.len(), 1);
+        assert_eq!(all_tasks[0].done, false);
+
+        // Mark the task as done
+        let result = mark_done(1);
+        assert!(result.is_ok());
+
+        // Verify the task is now done
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks[0].done, true);
+    }
+
+    #[test]
+    fn test_remove_task() {
+        // Reset the store for this test
+        TaskStore::reset_store_for_testing();
+
+        // Add a task first
+        let result = add("Test task".to_string(), Some("2023-01-01".to_string()));
+        assert!(result.is_ok());
+
+        // Verify the task exists
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks.len(), 1);
+
+        // Remove the task
+        let result = remove(1);
+        assert!(result.is_ok());
+
+        // Verify the task is gone
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks.len(), 0);
+    }
+
+    #[test]
+    fn test_edit_task() {
+        // Reset the store for this test
+        TaskStore::reset_store_for_testing();
+
+        // Add a task first
+        let result = add("Test task".to_string(), Some("2023-01-01".to_string()));
+        assert!(result.is_ok());
+
+        // Verify the initial task
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks.len(), 1);
+        assert_eq!(all_tasks[0].task, "Test task");
+
+        // Edit the task
+        let result = edit(1, Some("Updated task".to_string()), None);
+        assert!(result.is_ok());
+
+        // Verify the task was updated
+        let all_tasks = TaskStore::get_all_tasks().unwrap();
+        assert_eq!(all_tasks[0].task, "Updated task");
+    }
+
+    #[test]
+    fn test_parse_date_str() {
+        // Test successful parsing
+        let result = parse_date_str("2023-01-01");
+        assert!(result.is_ok());
+
+        // Test invalid parsing
+        let result = parse_date_str("invalid-date");
+        assert!(result.is_err());
+    }
+}

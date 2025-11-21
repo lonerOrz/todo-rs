@@ -6,7 +6,6 @@ mod shell;
 mod task_store;
 
 fn main() {
-    // Initialize task storage
     if let Err(e) = task_store::TaskStore::init() {
         eprintln!("Error initializing task store: {}", e);
         std::process::exit(1);
@@ -151,13 +150,11 @@ fn main() {
         }
     };
 
-    // Save tasks to disk before exiting
     if let Err(e) = task_store::TaskStore::save_to_disk() {
         eprintln!("Error saving tasks to disk: {}", e);
         std::process::exit(1);
     }
 
-    // Exit with error if command execution failed
     if let Err(e) = result {
         eprintln!("Error: {}", e);
         std::process::exit(1);
