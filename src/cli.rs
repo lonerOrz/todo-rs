@@ -1,4 +1,6 @@
 use crate::model::*;
+use crate::task_store::TaskStore;
+use anyhow::Result;
 use chrono::NaiveDate;
 use chrono::Datelike;
 
@@ -13,8 +15,7 @@ fn get_task_extra_info(t: &Task, today_date: chrono::NaiveDate) -> String {
     // Determine the date to use for overdue calculation
     let date_for_overdue_check = if let Some(reuse_id) = t.reuse_by {
         // If it's a reused task, check the original task's overdue status
-        let all_tasks_for_lookup = load_tasks(); // Load tasks internally
-        if let Some(original_task) = all_tasks_for_lookup.iter().find(|task| task.id == reuse_id) {
+        if let Ok(Some(original_task)) = TaskStore::find_task_by_id(reuse_id) {
             parse_date_str(&original_task.date).unwrap_or(today_date)
         } else {
             // Original task not found, fall back to current task's date
@@ -43,8 +44,13 @@ fn get_task_extra_info(t: &Task, today_date: chrono::NaiveDate) -> String {
 }
 
 fn list_by_date(tasks: &[Task], today_date: NaiveDate, specific_date_str: &str) {
-    let specific_date =
-        parse_date_str(specific_date_str).expect("Invalid date format. Use YYYY-MM-DD.");
+    let specific_date = match parse_date_str(specific_date_str) {
+        Ok(date) => date,
+        Err(_) => {
+            eprintln!("Error: Invalid date format. Use YYYY-MM-DD.");
+            return;
+        }
+    };
     let tasks_to_display: Vec<&Task> = tasks
         .iter()
         .filter(|t| parse_date_str(&t.date).map_or(false, |d| d == specific_date))
@@ -73,9 +79,8 @@ fn list_by_month(tasks: &[Task], today_date: NaiveDate) {
     }
 }
 
-pub fn add(task: String, date: Option<String>) {
-    let mut tasks = load_tasks();
-    let new_id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+pub fn add(task: String, date: Option<String>) -> Result<()> {
+    let new_id = TaskStore::get_max_id()? + 1;
     let task = Task {
         id: new_id,
         task,
@@ -83,16 +88,15 @@ pub fn add(task: String, date: Option<String>) {
         done: false,
         reuse_by: None,
     };
-    tasks.push(task);
-    save_tasks(&tasks);
+    TaskStore::add_task(task)?;
     println!("[+] Added task #{}", new_id);
+    Ok(())
 }
 
-pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) {
-    let mut tasks = load_tasks();
-    let mut changed = false;
+pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) -> Result<()> {
+    if let Ok(Some(mut task)) = TaskStore::find_task_by_id(id) {
+        let mut changed = false;
 
-    if let Some(task) = tasks.iter_mut().find(|t| t.id == id) {
         if let Some(new_task_str) = new_task {
             task.task = new_task_str;
             changed = true;
@@ -103,12 +107,12 @@ pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) {
                 changed = true;
             } else {
                 eprintln!("Error: Invalid date format. Please use YYYY-MM-DD.");
-                return;
+                return Ok(());
             }
         }
 
         if changed {
-            save_tasks(&tasks);
+            TaskStore::update_task(id, task)?;
             println!("[✓] Task #{} updated.", id);
         } else {
             println!("No changes made to task #{}.", id);
@@ -116,12 +120,19 @@ pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) {
     } else {
         eprintln!("Task #{} not found.", id);
     }
+    Ok(())
 }
 
-pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
-    let all_tasks = load_tasks();
+pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) -> Result<()> {
+    let all_tasks = TaskStore::get_all_tasks()?;
     let today = today_str();
-    let today_date = parse_date_str(&today).expect("Failed to parse today's date");
+    let today_date = match parse_date_str(&today) {
+        Ok(date) => date,
+        Err(_) => {
+            eprintln!("Error: Failed to parse today's date");
+            return Ok(());
+        }
+    };
 
     println!("Tasks:");
 
@@ -134,37 +145,41 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) {
     } else {
         list_default(&all_tasks, today_date);
     }
+
+    Ok(())
 }
 
-pub fn mark_done(id: usize) {
-    let mut tasks = load_tasks();
-    for t in &mut tasks {
-        if t.id == id {
-            t.done = true;
-            save_tasks(&tasks);
-            println!("[✓] Task #{} marked done.", id);
-            return;
-        }
+pub fn mark_done(id: usize) -> Result<()> {
+    if let Ok(Some(mut task)) = TaskStore::find_task_by_id(id) {
+        task.done = true;
+        TaskStore::update_task(id, task)?;
+        println!("[✓] Task #{} marked done.", id);
+    } else {
+        eprintln!("Task #{} not found.", id);
     }
-    eprintln!("Task #{} not found.", id);
+    Ok(())
 }
 
-pub fn remove(id: usize) {
-    let mut tasks = load_tasks();
-    let before = tasks.len();
-    tasks.retain(|t| t.id != id);
-    if tasks.len() < before {
-        save_tasks(&tasks);
+pub fn remove(id: usize) -> Result<()> {
+    let success = TaskStore::remove_task(id)?;
+    if success {
         println!("[-] Task #{} removed.", id);
     } else {
         eprintln!("Task #{} not found.", id);
     }
+    Ok(())
 }
 
-pub fn prompt_today() {
-    let all_tasks = load_tasks();
+pub fn prompt_today() -> Result<()> {
+    let all_tasks = TaskStore::get_all_tasks()?;
     let today = today_str();
-    let today_date = parse_date_str(&today).expect("Failed to parse today's date");
+    let today_date = match parse_date_str(&today) {
+        Ok(date) => date,
+        Err(_) => {
+            eprintln!("Error: Failed to parse today's date");
+            return Ok(());
+        }
+    };
     let (week_start, _) = get_current_week_range(today_date);
 
     let mut tasks_to_display: Vec<&Task> = all_tasks
@@ -199,11 +214,19 @@ pub fn prompt_today() {
     if !parts.is_empty() {
         println!("{}", parts.join(" "));
     }
+    Ok(())
 }
 
-pub fn review() {
-    let all_tasks = load_tasks();
-    let today_date = parse_date_str(&today_str()).expect("Failed to parse today's date");
+pub fn review() -> Result<()> {
+    let all_tasks = TaskStore::get_all_tasks()?;
+    let today = today_str();
+    let today_date = match parse_date_str(&today) {
+        Ok(date) => date,
+        Err(_) => {
+            eprintln!("Error: Failed to parse today's date");
+            return Ok(());
+        }
+    };
     let (week_start, _) = get_current_week_range(today_date);
 
     println!("\n--- Tasks Overdue From Before Current Week ---");
@@ -227,12 +250,14 @@ pub fn review() {
         println!("ID   Date         Days Overdue   Task Description");
         println!("---  -----------  ------------   -----------------------");
         for t in old_overdue_tasks {
-            let days_overdue = (today_date - parse_date_str(&t.date).unwrap()).num_days();
-            let task_display = truncate_string(&t.task, 22);
-            println!(
-                "{:<4} {:<11}  {:<12}   {}:",
-                t.id, t.date, days_overdue, task_display
-            );
+            if let Ok(task_date) = parse_date_str(&t.date) {
+                let days_overdue = (today_date - task_date).num_days();
+                let task_display = truncate_string(&t.task, 22);
+                println!(
+                    "{:<4} {:<11}  {:<12}   {}:",
+                    t.id, t.date, days_overdue, task_display
+                );
+            }
         }
 
         println!("\nYou can choose from the following actions:");
@@ -240,14 +265,12 @@ pub fn review() {
         println!("- Reschedule task: td reuse <Old Task ID> --date YYYY-MM-DD");
         println!("- Delete task: td rm <Task ID>");
     }
+    Ok(())
 }
 
-pub fn reuse(id: usize, date: Option<String>) {
-    let mut tasks = load_tasks();
-    let task_to_reuse_opt = tasks.iter().find(|t| t.id == id).cloned();
-
-    if let Some(task_to_reuse) = task_to_reuse_opt {
-        let new_id = tasks.iter().map(|t| t.id).max().unwrap_or(0) + 1;
+pub fn reuse(id: usize, date: Option<String>) -> Result<()> {
+    if let Ok(Some(task_to_reuse)) = TaskStore::find_task_by_id(id) {
+        let new_id = TaskStore::get_max_id()? + 1;
 
         // If task_to_reuse was itself a reused task, we point to its original.
         // Otherwise, we point to it.
@@ -255,19 +278,19 @@ pub fn reuse(id: usize, date: Option<String>) {
 
         let new_task = Task {
             id: new_id,
-            task: task_to_reuse.task,
+            task: task_to_reuse.task.clone(),  // Clone task description
             date: date.unwrap_or_else(today_str),
             done: false,
             reuse_by: Some(new_reuse_by_id),
         };
-        tasks.push(new_task);
+
+        TaskStore::add_task(new_task)?;
 
         // Mark the original task as done
-        if let Some(original_task_mut) = tasks.iter_mut().find(|t| t.id == id) {
-            original_task_mut.done = true;
-        }
+        let mut original_task = task_to_reuse;
+        original_task.done = true;
+        TaskStore::update_task(id, original_task)?;
 
-        save_tasks(&tasks);
         println!(
             "[+] Reused task #{} as new task #{}. Original task marked done.",
             id, new_id
@@ -275,10 +298,11 @@ pub fn reuse(id: usize, date: Option<String>) {
     } else {
         eprintln!("Task #{} not found.", id);
     }
+    Ok(())
 }
 
 // Helper functions that were originally in the file
-fn parse_date_str(date_str: &str) -> Result<chrono::NaiveDate, chrono::ParseError> {
+fn parse_date_str(date_str: &str) -> std::result::Result<chrono::NaiveDate, chrono::ParseError> {
     chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d")
 }
 
@@ -292,11 +316,14 @@ fn get_current_week_range(today: chrono::NaiveDate) -> (chrono::NaiveDate, chron
 fn get_current_month_range(today: chrono::NaiveDate) -> (chrono::NaiveDate, chrono::NaiveDate) {
     let year = today.year();
     let month = today.month();
-    let month_start = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let month_start = chrono::NaiveDate::from_ymd_opt(year, month, 1)
+        .expect("Invalid date: failed to create first day of month");
     let month_end = if month == 12 {
-        chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap() - chrono::Duration::days(1)
+        chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
+            .expect("Invalid date: failed to create first day of next year") - chrono::Duration::days(1)
     } else {
-        chrono::NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap() - chrono::Duration::days(1)
+        chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
+            .expect("Invalid date: failed to create first day of next month") - chrono::Duration::days(1)
     };
     (month_start, month_end)
 }

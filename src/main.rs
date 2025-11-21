@@ -3,8 +3,15 @@ use clap::{Arg, Command};
 mod cli;
 mod model;
 mod shell;
+mod task_store;
 
 fn main() {
+    // Initialize task storage
+    if let Err(e) = task_store::TaskStore::init() {
+        eprintln!("Error initializing task store: {}", e);
+        std::process::exit(1);
+    }
+
     let matches = Command::new("td")
         .version("0.1.0")
         .about("Minimalistic CLI Todo")
@@ -83,32 +90,76 @@ fn main() {
         )
         .get_matches();
 
-    match matches.subcommand() {
-        Some(("add", sub)) => cli::add(
-            sub.get_one::<String>("task").unwrap().to_string(),
-            sub.get_one::<String>("date").map(|s| s.to_string()),
-        ),
+    let result = match matches.subcommand() {
+        Some(("add", sub)) => {
+            let task = sub.get_one::<String>("task")
+                .expect("task is required")
+                .to_string();
+            cli::add(task, sub.get_one::<String>("date").map(|s| s.to_string()))
+        },
         Some(("list", sub)) => cli::list(
             sub.get_one::<String>("date").map(|s| s.to_string()),
             sub.get_flag("week"),
             sub.get_flag("month"),
         ),
         Some(("done", sub)) => {
-            cli::mark_done(sub.get_one::<String>("id").unwrap().parse().unwrap())
+            let id_str = sub.get_one::<String>("id")
+                .expect("id is required");
+            let id: usize = id_str.parse()
+                .expect("id must be a valid number");
+            cli::mark_done(id)
         }
-        Some(("rm", sub)) => cli::remove(sub.get_one::<String>("id").unwrap().parse().unwrap()),
-        Some(("edit", sub)) => cli::edit(
-            sub.get_one::<String>("id").unwrap().parse().unwrap(),
-            sub.get_one::<String>("task").map(|s| s.to_string()),
-            sub.get_one::<String>("date").map(|s| s.to_string()),
-        ),
+        Some(("rm", sub)) => {
+            let id_str = sub.get_one::<String>("id")
+                .expect("id is required");
+            let id: usize = id_str.parse()
+                .expect("id must be a valid number");
+            cli::remove(id)
+        }
+        Some(("edit", sub)) => {
+            let id_str = sub.get_one::<String>("id")
+                .expect("id is required");
+            let id: usize = id_str.parse()
+                .expect("id must be a valid number");
+            cli::edit(
+                id,
+                sub.get_one::<String>("task").map(|s| s.to_string()),
+                sub.get_one::<String>("date").map(|s| s.to_string()),
+            )
+        },
         Some(("prompt-today", _)) => cli::prompt_today(),
         Some(("review", _)) => cli::review(),
-        Some(("reuse", sub)) => cli::reuse(
-            sub.get_one::<String>("id").unwrap().parse().unwrap(),
-            sub.get_one::<String>("date").map(|s| s.to_string()),
-        ),
-        Some(("init", sub)) => shell::init_shell(sub.get_one::<String>("shell").unwrap()),
-        _ => println!("Use `td --help` to see available commands."),
+        Some(("reuse", sub)) => {
+            let id_str = sub.get_one::<String>("id")
+                .expect("id is required");
+            let id: usize = id_str.parse()
+                .expect("id must be a valid number");
+            cli::reuse(
+                id,
+                sub.get_one::<String>("date").map(|s| s.to_string()),
+            )
+        },
+        Some(("init", sub)) => {
+            let shell = sub.get_one::<String>("shell")
+                .expect("shell is required");
+            shell::init_shell(shell);
+            Ok(())
+        },
+        _ => {
+            println!("Use `td --help` to see available commands.");
+            Ok(())
+        }
+    };
+
+    // Save tasks to disk before exiting
+    if let Err(e) = task_store::TaskStore::save_to_disk() {
+        eprintln!("Error saving tasks to disk: {}", e);
+        std::process::exit(1);
+    }
+
+    // Exit with error if command execution failed
+    if let Err(e) = result {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
     }
 }
