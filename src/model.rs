@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -15,6 +16,13 @@ pub struct Task {
 }
 
 pub fn get_storage_path() -> Result<PathBuf> {
+    // Check for a test-specific environment variable first
+    if let Ok(test_path) = std::env::var("TD_TEST_CONFIG_DIR") {
+        let mut path = PathBuf::from(test_path);
+        path.push("td-rs/todo.json");
+        return Ok(path);
+    }
+
     let mut path = dirs::config_dir().ok_or_else(|| anyhow::Error::msg("Failed to get config directory"))?;
     path.push("td-rs/todo.json");
     Ok(path)
@@ -40,7 +48,9 @@ pub fn save_tasks(tasks: &[Task]) -> Result<()> {
         fs::create_dir_all(dir)?;
     }
     let json = serde_json::to_string_pretty(tasks)?;
-    fs::write(path, json)?;
+    let mut file = fs::File::create(&path)?;
+    file.write_all(json.as_bytes())?;
+    file.flush()?;
     Ok(())
 }
 
@@ -119,7 +129,9 @@ mod tests {
             fs::create_dir_all(dir)?;
         }
         let json = serde_json::to_string_pretty(tasks)?;
-        fs::write(path, json)?;
+        let mut file = fs::File::create(&path)?;
+    file.write_all(json.as_bytes())?;
+    file.flush()?;
         Ok(())
     }
 

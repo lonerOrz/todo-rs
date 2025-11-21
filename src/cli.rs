@@ -59,7 +59,11 @@ fn list_by_date(tasks: &[Task], today_date: NaiveDate, specific_date_str: &str) 
     for t in tasks_to_display {
         let status = if t.done { "[✓]" } else { "[ ]" };
         let extra_info = get_task_extra_info(t, today_date);
-        println!("{} {} {}{}", t.id, status, t.task, extra_info);
+        // Format the output with better alignment
+        println!("{:>4} {} {}", t.id, status, t.task);
+        if !extra_info.is_empty() {
+            println!("       {}", extra_info);
+        }
     }
 }
 
@@ -75,7 +79,11 @@ fn list_by_month(tasks: &[Task], today_date: NaiveDate) {
     for t in tasks_to_display {
         let status = if t.done { "[✓]" } else { "[ ]" };
         let extra_info = get_task_extra_info(t, today_date);
-        println!("{} {} {}{}", t.id, status, t.task, extra_info);
+        // Format the output with better alignment
+        println!("{:>4} {} {}", t.id, status, t.task);
+        if !extra_info.is_empty() {
+            println!("       {}", extra_info);
+        }
     }
 }
 
@@ -123,8 +131,8 @@ pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) -> Re
     Ok(())
 }
 
-pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) -> Result<()> {
-    let all_tasks = TaskStore::get_all_tasks()?;
+pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_done: bool, show_pending: bool, from_id: Option<usize>, to_id: Option<usize>, search_keyword: Option<String>) -> Result<()> {
+    let mut all_tasks = TaskStore::get_all_tasks()?;
     let today = today_str();
     let today_date = match parse_date_str(&today) {
         Ok(date) => date,
@@ -133,6 +141,27 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool) -> Resu
             return Ok(());
         }
     };
+
+    // Apply status filter if specified
+    if show_done && !show_pending {
+        all_tasks.retain(|t| t.done);
+    } else if show_pending && !show_done {
+        all_tasks.retain(|t| !t.done);
+    }
+    // If both flags are true or both are false, show all tasks
+
+    // Apply ID range filter if specified
+    if let Some(from) = from_id {
+        all_tasks.retain(|t| t.id >= from);
+    }
+    if let Some(to) = to_id {
+        all_tasks.retain(|t| t.id <= to);
+    }
+
+    // Apply search filter if specified
+    if let Some(keyword) = search_keyword {
+        all_tasks.retain(|t| t.task.to_lowercase().contains(&keyword));
+    }
 
     println!("Tasks:");
 
@@ -360,7 +389,11 @@ fn list_by_week(tasks: &[Task], today_date: NaiveDate) {
     for t in tasks_to_display {
         let status = if t.done { "[✓]" } else { "[ ]" };
         let extra_info = get_task_extra_info(t, today_date);
-        println!("{} {} {}{}", t.id, status, t.task, extra_info);
+        // Format the output with better alignment
+        println!("{:>4} {} {}", t.id, status, t.task);
+        if !extra_info.is_empty() {
+            println!("       {}", extra_info);
+        }
     }
 }
 
@@ -389,7 +422,11 @@ fn list_default(tasks: &[Task], today_date: NaiveDate) {
         for t in tasks_to_display {
             let status = if t.done { "[✓]" } else { "[ ]" };
             let extra_info = get_task_extra_info(t, today_date);
-            println!("{} {} {}{}", t.id, status, t.task, extra_info);
+            // Format the output with better alignment
+            println!("{:>4} {} {}", t.id, status, t.task);
+            if !extra_info.is_empty() {
+                println!("       {}", extra_info);
+            }
         }
     }
 }

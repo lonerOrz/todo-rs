@@ -40,6 +40,36 @@ fn main() {
                         .long("month")
                         .action(clap::ArgAction::SetTrue)
                         .help("List tasks for the current month"),
+                )
+                .arg(
+                    Arg::new("done")
+                        .long("done")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("List only completed tasks"),
+                )
+                .arg(
+                    Arg::new("pending")
+                        .long("pending")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("List only pending tasks"),
+                )
+                .arg(
+                    Arg::new("from_id")
+                        .long("from")
+                        .value_name("ID")
+                        .help("List tasks with ID greater than or equal to specified value"),
+                )
+                .arg(
+                    Arg::new("to_id")
+                        .long("to")
+                        .value_name("ID")
+                        .help("List tasks with ID less than or equal to specified value"),
+                )
+                .arg(
+                    Arg::new("search")
+                        .long("search")
+                        .value_name("KEYWORD")
+                        .help("Search tasks by keyword in task content"),
                 ),
         )
         .subcommand(
@@ -100,6 +130,11 @@ fn main() {
             sub.get_one::<String>("date").map(|s| s.to_string()),
             sub.get_flag("week"),
             sub.get_flag("month"),
+            sub.get_flag("done"),
+            sub.get_flag("pending"),
+            sub.get_one::<String>("from_id").and_then(|s| s.parse::<usize>().ok()),
+            sub.get_one::<String>("to_id").and_then(|s| s.parse::<usize>().ok()),
+            sub.get_one::<String>("search").map(|s| s.to_lowercase()),
         ),
         Some(("done", sub)) => {
             let id_str = sub.get_one::<String>("id")

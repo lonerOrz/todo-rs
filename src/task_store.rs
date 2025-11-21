@@ -11,7 +11,22 @@ pub struct TaskStore;
 impl TaskStore {
     pub fn init() -> Result<()> {
         TASK_STORE.with(|store| {
-            let tasks = load_tasks()?;
+            let tasks = match load_tasks() {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("Warning: Could not load tasks ({}). Initializing with empty store.", e);
+                    // Optionally, try to remove the corrupted file if it exists and is the cause
+                    if let Ok(path) = crate::model::get_storage_path() {
+                        if path.exists() {
+                            eprintln!("Attempting to delete corrupted task file: {:?}", path);
+                            if let Err(remove_err) = std::fs::remove_file(path) {
+                                eprintln!("Error deleting corrupted file: {}", remove_err);
+                            }
+                        }
+                    }
+                    Vec::new()
+                }
+            };
             *store.borrow_mut() = Some(tasks);
             Ok(())
         })
