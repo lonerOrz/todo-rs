@@ -15,12 +15,17 @@ impl TaskStore {
                 Ok(t) => t,
                 Err(e) => {
                     eprintln!("Warning: Could not load tasks ({}). Initializing with empty store.", e);
-                    // Optionally, try to remove the corrupted file if it exists and is the cause
+                    // Backup the corrupted file with a timestamp
                     if let Ok(path) = crate::model::get_storage_path() {
                         if path.exists() {
-                            eprintln!("Attempting to delete corrupted task file: {:?}", path);
-                            if let Err(remove_err) = std::fs::remove_file(path) {
-                                eprintln!("Error deleting corrupted file: {}", remove_err);
+                            let timestamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S");
+                            let backup_filename = format!("todo.json.{}.bak", timestamp);
+                            let backup_path = path.with_file_name(backup_filename);
+                            eprintln!("Attempting to back up corrupted task file to: {:?}", backup_path);
+                            if let Err(rename_err) = std::fs::rename(&path, &backup_path) {
+                                eprintln!("Error creating backup of corrupted file: {}", rename_err);
+                            } else {
+                                eprintln!("Successfully created timestamped backup of corrupted file.");
                             }
                         }
                     }
