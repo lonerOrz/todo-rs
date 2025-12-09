@@ -1,3 +1,4 @@
+#[allow(clippy::print_literal)]
 pub fn init_shell(shell: &str) {
     match shell {
         "fish" => {
@@ -69,7 +70,7 @@ td_prompt_bash() {
   local s
   s=$(td prompt-today)
   if [[ -n "$s" ]]; then
-    export TD_PROMPT_STRING="\[\\e[32m\]$s \[\\e[0m\]"
+    export export TD_PROMPT_STRING="\\[\\e[32m\\]$s\\[\\e[0m\\] "
   else
     export TD_PROMPT_STRING=""
   fi

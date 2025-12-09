@@ -1,8 +1,9 @@
 use crate::model::*;
 use crate::task_store::TaskStore;
 use anyhow::Result;
-use chrono::NaiveDate;
 use chrono::Datelike;
+use chrono::NaiveDate;
+use colored::*;
 
 fn get_task_extra_info(t: &Task, today_date: chrono::NaiveDate) -> String {
     let mut parts = Vec::new();
@@ -27,7 +28,8 @@ fn get_task_extra_info(t: &Task, today_date: chrono::NaiveDate) -> String {
     };
 
     // Calculate overdue status if the *current* task is not done
-    if !t.done { // <--- Changed this back to t.done
+    if !t.done {
+        // <--- Changed this back to t.done
         if date_for_overdue_check < today_date {
             let days_overdue = (today_date - date_for_overdue_check).num_days();
             if days_overdue > 0 {
@@ -53,16 +55,21 @@ fn list_by_date(tasks: &[Task], today_date: NaiveDate, specific_date_str: &str) 
     };
     let tasks_to_display: Vec<&Task> = tasks
         .iter()
-        .filter(|t| parse_date_str(&t.date).map_or(false, |d| d == specific_date))
+        .filter(|t| parse_date_str(&t.date) == Ok(specific_date))
         .collect();
     println!("--- For {} ---", specific_date_str);
     for t in tasks_to_display {
-        let status = if t.done { "[✓]" } else { "[ ]" };
+        let status = if t.done {
+            "[✓]".green().to_string()
+        } else {
+            "[ ]".red().to_string()
+        };
         let extra_info = get_task_extra_info(t, today_date);
-        // Format the output with better alignment
-        println!("{:>4} {} {}", t.id, status, t.task);
+        // Format the output with better alignment - include extra info on same line
         if !extra_info.is_empty() {
-            println!("       {}", extra_info);
+            println!("{:>4} {} {} {}", t.id, status, t.task, extra_info);
+        } else {
+            println!("{:>4} {} {}", t.id, status, t.task);
         }
     }
 }
@@ -71,18 +78,21 @@ fn list_by_month(tasks: &[Task], today_date: NaiveDate) {
     let (month_start, month_end) = get_current_month_range(today_date);
     let tasks_to_display: Vec<&Task> = tasks
         .iter()
-        .filter(|t| {
-            parse_date_str(&t.date).map_or(false, |d| d >= month_start && d <= month_end)
-        })
+        .filter(|t| parse_date_str(&t.date).is_ok_and(|d| d >= month_start && d <= month_end))
         .collect();
     println!("--- For Current Month ({}) ---", today_date.format("%Y-%m"));
     for t in tasks_to_display {
-        let status = if t.done { "[✓]" } else { "[ ]" };
+        let status = if t.done {
+            "[✓]".green().to_string()
+        } else {
+            "[ ]".red().to_string()
+        };
         let extra_info = get_task_extra_info(t, today_date);
-        // Format the output with better alignment
-        println!("{:>4} {} {}", t.id, status, t.task);
+        // Format the output with better alignment - include extra info on same line
         if !extra_info.is_empty() {
-            println!("       {}", extra_info);
+            println!("{:>4} {} {} {}", t.id, status, t.task, extra_info);
+        } else {
+            println!("{:>4} {} {}", t.id, status, t.task);
         }
     }
 }
@@ -131,7 +141,18 @@ pub fn edit(id: usize, new_task: Option<String>, new_date: Option<String>) -> Re
     Ok(())
 }
 
-pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_done: bool, show_pending: bool, from_id: Option<usize>, to_id: Option<usize>, search_keyword: Option<String>, json_output: bool) -> Result<()> {
+#[allow(clippy::too_many_arguments)]
+pub fn list(
+    date_arg: Option<String>,
+    show_week: bool,
+    show_month: bool,
+    show_done: bool,
+    show_pending: bool,
+    from_id: Option<usize>,
+    to_id: Option<usize>,
+    search_keyword: Option<String>,
+    json_output: bool,
+) -> Result<()> {
     let mut all_tasks = TaskStore::get_all_tasks()?;
     let today = today_str();
     let today_date = match parse_date_str(&today) {
@@ -167,7 +188,7 @@ pub fn list(date_arg: Option<String>, show_week: bool, show_month: bool, show_do
     if let Some(ref specific_date_str) = date_arg {
         let specific_date = parse_date_str(specific_date_str);
         if let Ok(parsed_date) = specific_date {
-            all_tasks.retain(|t| parse_date_str(&t.date).map_or(false, |d| d == parsed_date));
+            all_tasks.retain(|t| parse_date_str(&t.date) == Ok(parsed_date));
         }
         // If date parsing fails, we continue with all tasks but the date view will handle the error
     }
@@ -271,13 +292,13 @@ pub fn prompt_today() -> Result<()> {
     let mut parts: Vec<String> = Vec::new();
     for t in tasks_to_display {
         let icon = if t.done {
-            "🟢"
+            "".green().to_string() // Nerd Font: NF-mdi-check
         } else if t.reuse_by.is_some() {
-            "🟡"
+            "".yellow().to_string() // Nerd Font: NF-mdi-sync
         } else {
-            "🔴"
+            "".red().to_string() // Nerd Font: NF-oct-tasklist
         };
-        parts.push(format!("{}#{}", icon, t.id));
+        parts.push(format!("{:2}#{}", icon, t.id));
     }
 
     if !parts.is_empty() {
@@ -347,7 +368,7 @@ pub fn reuse(id: usize, date: Option<String>) -> Result<()> {
 
         let new_task = Task {
             id: new_id,
-            task: task_to_reuse.task.clone(),  // Clone task description
+            task: task_to_reuse.task.clone(), // Clone task description
             date: date.unwrap_or_else(today_str),
             done: false,
             reuse_by: Some(new_reuse_by_id),
@@ -389,10 +410,12 @@ fn get_current_month_range(today: chrono::NaiveDate) -> (chrono::NaiveDate, chro
         .expect("Invalid date: failed to create first day of month");
     let month_end = if month == 12 {
         chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
-            .expect("Invalid date: failed to create first day of next year") - chrono::Duration::days(1)
+            .expect("Invalid date: failed to create first day of next year")
+            - chrono::Duration::days(1)
     } else {
         chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
-            .expect("Invalid date: failed to create first day of next month") - chrono::Duration::days(1)
+            .expect("Invalid date: failed to create first day of next month")
+            - chrono::Duration::days(1)
     };
     (month_start, month_end)
 }
@@ -427,12 +450,17 @@ fn list_by_week(tasks: &[Task], today_date: NaiveDate) {
         week_end.format("%Y-%m-%d")
     );
     for t in tasks_to_display {
-        let status = if t.done { "[✓]" } else { "[ ]" };
+        let status = if t.done {
+            "[✓]".green().to_string()
+        } else {
+            "[ ]".red().to_string()
+        };
         let extra_info = get_task_extra_info(t, today_date);
-        // Format the output with better alignment
-        println!("{:>4} {} {}", t.id, status, t.task);
+        // Format the output with better alignment - include extra info on same line
         if !extra_info.is_empty() {
-            println!("       {}", extra_info);
+            println!("{:>4} {} {} {}", t.id, status, t.task, extra_info);
+        } else {
+            println!("{:>4} {} {}", t.id, status, t.task);
         }
     }
 }
@@ -460,12 +488,17 @@ fn list_default(tasks: &[Task], today_date: NaiveDate) {
         println!("No tasks for today or overdue this week.");
     } else {
         for t in tasks_to_display {
-            let status = if t.done { "[✓]" } else { "[ ]" };
+            let status = if t.done {
+                "[✓]".green().to_string()
+            } else {
+                "[ ]".red().to_string()
+            };
             let extra_info = get_task_extra_info(t, today_date);
-            // Format the output with better alignment
-            println!("{:>4} {} {}", t.id, status, t.task);
+            // Format the output with better alignment - include extra info on same line
             if !extra_info.is_empty() {
-                println!("       {}", extra_info);
+                println!("{:>4} {} {} {}", t.id, status, t.task, extra_info);
+            } else {
+                println!("{:>4} {} {}", t.id, status, t.task);
             }
         }
     }

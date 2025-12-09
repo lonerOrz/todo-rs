@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::cell::RefCell;
 
 thread_local! {
-    static TASK_STORE: RefCell<Option<Vec<Task>>> = RefCell::new(None);
+    static TASK_STORE: RefCell<Option<Vec<Task>>> = const { RefCell::new(None) };
 }
 
 pub struct TaskStore;
@@ -14,18 +14,29 @@ impl TaskStore {
             let tasks = match load_tasks() {
                 Ok(t) => t,
                 Err(e) => {
-                    eprintln!("Warning: Could not load tasks ({}). Initializing with empty store.", e);
+                    eprintln!(
+                        "Warning: Could not load tasks ({}). Initializing with empty store.",
+                        e
+                    );
                     // Backup the corrupted file with a timestamp
                     if let Ok(path) = crate::model::get_storage_path() {
                         if path.exists() {
                             let timestamp = chrono::Local::now().format("%Y-%m-%d-%H%M%S");
                             let backup_filename = format!("todo.json.{}.bak", timestamp);
                             let backup_path = path.with_file_name(backup_filename);
-                            eprintln!("Attempting to back up corrupted task file to: {:?}", backup_path);
+                            eprintln!(
+                                "Attempting to back up corrupted task file to: {:?}",
+                                backup_path
+                            );
                             if let Err(rename_err) = std::fs::rename(&path, &backup_path) {
-                                eprintln!("Error creating backup of corrupted file: {}", rename_err);
+                                eprintln!(
+                                    "Error creating backup of corrupted file: {}",
+                                    rename_err
+                                );
                             } else {
-                                eprintln!("Successfully created timestamped backup of corrupted file.");
+                                eprintln!(
+                                    "Successfully created timestamped backup of corrupted file."
+                                );
                             }
                         }
                     }

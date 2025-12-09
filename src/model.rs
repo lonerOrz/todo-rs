@@ -23,7 +23,8 @@ pub fn get_storage_path() -> Result<PathBuf> {
         return Ok(path);
     }
 
-    let mut path = dirs::config_dir().ok_or_else(|| anyhow::Error::msg("Failed to get config directory"))?;
+    let mut path =
+        dirs::config_dir().ok_or_else(|| anyhow::Error::msg("Failed to get config directory"))?;
     path.push("td-rs/todo.json");
     Ok(path)
 }
@@ -130,8 +131,8 @@ mod tests {
         }
         let json = serde_json::to_string_pretty(tasks)?;
         let mut file = fs::File::create(&path)?;
-    file.write_all(json.as_bytes())?;
-    file.flush()?;
+        file.write_all(json.as_bytes())?;
+        file.flush()?;
         Ok(())
     }
 

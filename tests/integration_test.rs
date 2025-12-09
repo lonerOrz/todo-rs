@@ -1,7 +1,7 @@
-use predicates::prelude::*;
 use assert_cmd::Command;
+use chrono::{Duration, Local};
+use predicates::prelude::*;
 use tempfile::TempDir;
-use chrono::{Local, Duration};
 
 // Test structure that manages the temporary directory for each test
 struct TestEnv {
@@ -24,7 +24,6 @@ impl TestEnv {
         cmd
     }
 }
-
 
 #[test]
 fn test_full_workflow() {
@@ -75,7 +74,9 @@ fn test_full_workflow() {
         .arg("list")
         .assert()
         .success()
-        .stdout(predicates::str::contains("No tasks for today or overdue this week.")); // Should be empty
+        .stdout(predicates::str::contains(
+            "No tasks for today or overdue this week.",
+        )); // Should be empty
 }
 
 #[test]
@@ -84,7 +85,12 @@ fn test_add_with_date() {
 
     // Test adding a task with a date
     env.td_command()
-        .args(&["add", "Test task with specific date", "--date", "2023-12-25"])
+        .args(&[
+            "add",
+            "Test task with specific date",
+            "--date",
+            "2023-12-25",
+        ])
         .assert()
         .success()
         .stdout(predicates::str::contains("Added task #"));
@@ -177,14 +183,24 @@ fn test_review_command() {
 
     // Add an overdue task (9 days ago)
     env.td_command()
-        .args(&["add", "Very overdue task", "--date", &nine_days_ago.to_string()])
+        .args(&[
+            "add",
+            "Very overdue task",
+            "--date",
+            &nine_days_ago.to_string(),
+        ])
         .assert()
         .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     // Add a task that's not overdue enough for review (6 days ago)
     env.td_command()
-        .args(&["add", "Not overdue enough task", "--date", &(today - Duration::days(6)).to_string()])
+        .args(&[
+            "add",
+            "Not overdue enough task",
+            "--date",
+            &(today - Duration::days(6)).to_string(),
+        ])
         .assert()
         .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -227,7 +243,10 @@ fn test_reuse_command() {
         .args(&["reuse", "1", "--date", &tomorrow])
         .assert()
         .success()
-        .stdout(predicates::str::contains("as new task #").and(predicates::str::contains("Original task marked done.")));
+        .stdout(
+            predicates::str::contains("as new task #")
+                .and(predicates::str::contains("Original task marked done.")),
+        );
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     // Verify original task #1 is marked done
@@ -257,15 +276,30 @@ fn test_list_commands() {
     let last_week = today - Duration::days(8);
 
     // Add various tasks
-    env.td_command().args(&["add", "Task today"]).assert().success();
+    env.td_command()
+        .args(&["add", "Task today"])
+        .assert()
+        .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
-    env.td_command().args(&["add", "Task tomorrow", "--date", &tomorrow.to_string()]).assert().success();
+    env.td_command()
+        .args(&["add", "Task tomorrow", "--date", &tomorrow.to_string()])
+        .assert()
+        .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
-    env.td_command().args(&["add", "Task yesterday", "--date", &yesterday.to_string()]).assert().success();
+    env.td_command()
+        .args(&["add", "Task yesterday", "--date", &yesterday.to_string()])
+        .assert()
+        .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
-    env.td_command().args(&["add", "Task next week", "--date", &next_week.to_string()]).assert().success();
+    env.td_command()
+        .args(&["add", "Task next week", "--date", &next_week.to_string()])
+        .assert()
+        .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
-    env.td_command().args(&["add", "Task last week", "--date", &last_week.to_string()]).assert().success();
+    env.td_command()
+        .args(&["add", "Task last week", "--date", &last_week.to_string()])
+        .assert()
+        .success();
     std::thread::sleep(std::time::Duration::from_millis(100));
 
     // List default (today and overdue this week)
@@ -298,8 +332,8 @@ fn test_list_commands() {
         .stdout(predicates::str::contains("Task today"))
         .stdout(predicates::str::contains("Task tomorrow"))
         .stdout(predicates::str::contains("Task yesterday"));
-        // Depending on `today`, next_week and last_week might or might not be in the current week.
-        // We'll avoid asserting their absence for now to keep the test simple and robust against date changes.
+    // Depending on `today`, next_week and last_week might or might not be in the current week.
+    // We'll avoid asserting their absence for now to keep the test simple and robust against date changes.
 
     // List by month
     env.td_command()
@@ -320,27 +354,49 @@ fn test_prompt_today_command() {
     let yesterday = today - Duration::days(1);
     let two_days_ago = today - Duration::days(2);
 
-        // Add tasks
+    // Add tasks
 
-        env.td_command().args(&["add", "Task for today 1"]).assert().success(); // ID 1
+    env.td_command()
+        .args(&["add", "Task for today 1"])
+        .assert()
+        .success(); // ID 1
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-        env.td_command().args(&["add", "Task for today 2"]).assert().success(); // ID 2
+    env.td_command()
+        .args(&["add", "Task for today 2"])
+        .assert()
+        .success(); // ID 2
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-        env.td_command().args(&["add", "Task for yesterday", "--date", &yesterday.to_string()]).assert().success(); // ID 3
+    env.td_command()
+        .args(&[
+            "add",
+            "Task for yesterday",
+            "--date",
+            &yesterday.to_string(),
+        ])
+        .assert()
+        .success(); // ID 3
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-        env.td_command().args(&["add", "Done task yesterday", "--date", &two_days_ago.to_string()]).assert().success(); // ID 4
+    env.td_command()
+        .args(&[
+            "add",
+            "Done task yesterday",
+            "--date",
+            &two_days_ago.to_string(),
+        ])
+        .assert()
+        .success(); // ID 4
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-        env.td_command().args(&["done", "4"]).assert().success();
+    env.td_command().args(&["done", "4"]).assert().success();
 
-        std::thread::sleep(std::time::Duration::from_millis(100));
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
     // Check prompt-today output
     env.td_command()
@@ -350,5 +406,5 @@ fn test_prompt_today_command() {
         .stdout(predicates::str::contains("🔴#1")) // Undone today
         .stdout(predicates::str::contains("🔴#2")) // Undone today
         .stdout(predicates::str::contains("🔴#3")); // Undone yesterday (overdue this week)
-        // Note: #4 is done, so it might not appear in prompt-today output
+                                                    // Note: #4 is done, so it might not appear in prompt-today output
 }
