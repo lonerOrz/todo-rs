@@ -320,6 +320,7 @@ pub fn prompt_today() -> Result<()> {
             return Ok(());
         }
     };
+
     let today = today_str();
     let today_date = match parse_date_str(&today) {
         Ok(date) => date,
@@ -328,27 +329,37 @@ pub fn prompt_today() -> Result<()> {
             return Ok(());
         }
     };
+
     let (week_start, _) = get_current_week_range(today_date);
 
-    let mut tasks_to_display: Vec<&Task> = all_tasks
+    // Pre-calculate the date comparison values to avoid repeated parsing
+    let mut tasks_to_display: Vec<(String, &Task)> = all_tasks
         .iter()
-        .filter(|t| {
+        .filter_map(|t| {
             if let Ok(task_date) = parse_date_str(&t.date) {
                 // Condition 1: Undone tasks from the start of the week up to (but not including) today
                 let is_past_undone = task_date >= week_start && task_date < today_date && !t.done;
                 // Condition 2: All tasks for today
                 let is_today = task_date == today_date;
-                is_past_undone || is_today
+
+                if is_past_undone || is_today {
+                    Some((task_date.format("%Y-%m-%d").to_string(), t))
+                } else {
+                    None
+                }
             } else {
-                false // Exclude tasks with invalid dates
+                None // Exclude tasks with invalid dates
             }
         })
         .collect();
 
-    tasks_to_display.sort_by_key(|t| (&t.date, t.id));
+    // Sort by date and then by ID
+    tasks_to_display.sort_by(|a, b| {
+        a.0.cmp(&b.0).then_with(|| a.1.id.cmp(&b.1.id))
+    });
 
     let mut parts: Vec<String> = Vec::new();
-    for t in tasks_to_display {
+    for (_, t) in tasks_to_display {
         let icon = if t.done {
             "".green().to_string() // Nerd Font: NF-mdi-check
         } else if t.reuse_by.is_some() {
