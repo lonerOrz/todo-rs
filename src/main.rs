@@ -126,13 +126,16 @@ fn main() {
         .get_matches();
 
     let result = match matches.subcommand() {
-        Some(("add", sub)) => {
-            let task = sub
-                .get_one::<String>("task")
-                .expect("task is required")
-                .to_string();
-            cli::add(task, sub.get_one::<String>("date").map(|s| s.to_string()))
-        }
+        Some(("add", sub)) => match sub.get_one::<String>("task") {
+            Some(task) => cli::add(
+                task.to_string(),
+                sub.get_one::<String>("date").map(|s| s.to_string()),
+            ),
+            None => {
+                eprintln!("Error: task is required");
+                Ok(())
+            }
+        },
         Some(("list", sub)) => cli::list(
             sub.get_one::<String>("date").map(|s| s.to_string()),
             sub.get_flag("week"),
@@ -146,36 +149,72 @@ fn main() {
             sub.get_one::<String>("search").map(|s| s.to_lowercase()),
             sub.get_flag("json"),
         ),
-        Some(("done", sub)) => {
-            let id_str = sub.get_one::<String>("id").expect("id is required");
-            let id: usize = id_str.parse().expect("id must be a valid number");
-            cli::mark_done(id)
-        }
-        Some(("rm", sub)) => {
-            let id_str = sub.get_one::<String>("id").expect("id is required");
-            let id: usize = id_str.parse().expect("id must be a valid number");
-            cli::remove(id)
-        }
-        Some(("edit", sub)) => {
-            let id_str = sub.get_one::<String>("id").expect("id is required");
-            let id: usize = id_str.parse().expect("id must be a valid number");
-            cli::edit(
-                id,
-                sub.get_one::<String>("task").map(|s| s.to_string()),
-                sub.get_one::<String>("date").map(|s| s.to_string()),
-            )
-        }
+        Some(("done", sub)) => match sub.get_one::<String>("id") {
+            Some(id_str) => match id_str.parse::<usize>() {
+                Ok(id) => cli::mark_done(id),
+                Err(_) => {
+                    eprintln!("Error: id must be a valid number");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("Error: id is required");
+                Ok(())
+            }
+        },
+        Some(("rm", sub)) => match sub.get_one::<String>("id") {
+            Some(id_str) => match id_str.parse::<usize>() {
+                Ok(id) => cli::remove(id),
+                Err(_) => {
+                    eprintln!("Error: id must be a valid number");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("Error: id is required");
+                Ok(())
+            }
+        },
+        Some(("edit", sub)) => match sub.get_one::<String>("id") {
+            Some(id_str) => match id_str.parse::<usize>() {
+                Ok(id) => cli::edit(
+                    id,
+                    sub.get_one::<String>("task").map(|s| s.to_string()),
+                    sub.get_one::<String>("date").map(|s| s.to_string()),
+                ),
+                Err(_) => {
+                    eprintln!("Error: id must be a valid number");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("Error: id is required");
+                Ok(())
+            }
+        },
         Some(("prompt-today", _)) => cli::prompt_today(),
         Some(("review", _)) => cli::review(),
-        Some(("reuse", sub)) => {
-            let id_str = sub.get_one::<String>("id").expect("id is required");
-            let id: usize = id_str.parse().expect("id must be a valid number");
-            cli::reuse(id, sub.get_one::<String>("date").map(|s| s.to_string()))
-        }
+        Some(("reuse", sub)) => match sub.get_one::<String>("id") {
+            Some(id_str) => match id_str.parse::<usize>() {
+                Ok(id) => cli::reuse(id, sub.get_one::<String>("date").map(|s| s.to_string())),
+                Err(_) => {
+                    eprintln!("Error: id must be a valid number");
+                    Ok(())
+                }
+            },
+            None => {
+                eprintln!("Error: id is required");
+                Ok(())
+            }
+        },
         Some(("init", sub)) => {
-            let shell = sub.get_one::<String>("shell").expect("shell is required");
-            shell::init_shell(shell);
-            Ok(())
+            if let Some(shell) = sub.get_one::<String>("shell") {
+                shell::init_shell(shell);
+                Ok(())
+            } else {
+                eprintln!("Error: shell is required");
+                Ok(())
+            }
         }
         _ => {
             println!("Use `td --help` to see available commands.");

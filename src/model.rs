@@ -1,8 +1,10 @@
 use anyhow::Result;
 use chrono::Local;
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Write;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,7 +40,13 @@ pub fn load_tasks() -> Result<Vec<Task>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let data = fs::read_to_string(path)?;
+
+    let mut file = File::open(&path)?;
+    file.lock_shared()?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+    file.unlock()?;
+
     let tasks = serde_json::from_str(&data)?;
     Ok(tasks)
 }
@@ -49,9 +57,11 @@ pub fn save_tasks(tasks: &[Task]) -> Result<()> {
         fs::create_dir_all(dir)?;
     }
     let json = serde_json::to_string_pretty(tasks)?;
-    let mut file = fs::File::create(&path)?;
+    let mut file = File::create(&path)?;
+    file.lock_exclusive()?;
     file.write_all(json.as_bytes())?;
     file.flush()?;
+    file.unlock()?;
     Ok(())
 }
 

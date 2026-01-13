@@ -6,6 +6,40 @@ thread_local! {
     static TASK_STORE: RefCell<Option<Vec<Task>>> = const { RefCell::new(None) };
 }
 
+// Validation function to ensure task integrity
+fn validate_tasks(tasks: Vec<Task>) -> Vec<Task> {
+    let mut validated_tasks = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+
+    for task in tasks {
+        // Skip tasks with duplicate IDs
+        if seen_ids.contains(&task.id) {
+            eprintln!("Warning: Skipping task with duplicate ID: {}", task.id);
+            continue;
+        }
+
+        // Validate ID is positive
+        if task.id == 0 {
+            eprintln!("Warning: Skipping task with invalid ID: {}", task.id);
+            continue;
+        }
+
+        // Validate date format
+        if chrono::NaiveDate::parse_from_str(&task.date, "%Y-%m-%d").is_err() {
+            eprintln!(
+                "Warning: Skipping task with invalid date format: {}",
+                task.date
+            );
+            continue;
+        }
+
+        seen_ids.insert(task.id);
+        validated_tasks.push(task);
+    }
+
+    validated_tasks
+}
+
 pub struct TaskStore;
 
 impl TaskStore {
@@ -43,7 +77,9 @@ impl TaskStore {
                     Vec::new()
                 }
             };
-            *store.borrow_mut() = Some(tasks);
+            // Validate tasks to prevent potential runtime issues
+            let validated_tasks = validate_tasks(tasks);
+            *store.borrow_mut() = Some(validated_tasks);
             Ok(())
         })
     }
